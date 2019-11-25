@@ -1,0 +1,70 @@
+{
+    "global": {
+        "letsEncrypt": {
+            "serverUrl": "https://acme-v02.api.letsencrypt.org/directory"
+        },
+        "certificates": {
+            "pfxPassword": ""
+        }
+    },
+    "providers": [
+        {
+            "name": "https",
+            "type": "http",
+            "pluginName": "",
+            "settings" : {
+                "path": "\\\\<server>\\<share>",
+                "userName": "<user name>",
+                "password": ""
+            }
+        },
+        {
+            "name": "godaddy",
+            "type": "dns",
+            "settings": {
+                "GDKey": "<key>",
+                "GDSecret": "<secret>"
+            }
+        },
+        {
+            "name": "namecom",
+            "type": "dns",
+            "settings": {
+                "NameComUserName": "<user name>",
+                "NameComToken": "<token>"
+            }
+        }
+    ],
+    "domains": [
+        {
+            "displayName": "somedomain.com",
+            "mainDomain" : "*.somedomain.com",
+            "alternateDomains": [],
+            "contact": "certs@somdomain.com",
+            "type": "http",
+            "provider": {
+                "name": "https"
+            }
+        },
+        {
+            "displayName":"someotherdomain.com",
+            "mainDomain": "*.someotherdomain.com",
+            "alternateDomains": [],
+            "contact": "certs@someotherdomain.com",
+            "type": "dns",
+            "provider": {
+                "name": "godaddy"
+            }
+        },
+        {
+            "displayName":"yetsomeotherdomain.org",
+            "mainDomain": "yetsomeotherdomain.org",
+            "alternateDomains": [ "www.yetsomeotherdomain.org", "beta.yetsomeotherdomain.org", "dnn.yetsomeotherdomain.org", "mail.yetsomeotherdomain.org" ],
+            "contact": "certs@yetsomeotherdomain.org",
+            "type": "http",
+            "provider": {
+                "name": "https"
+            }
+        } 
+    ]
+}

@@ -15,7 +15,7 @@ $accounts | ForEach-Object {
 	Set-PAAccount -ID $a.id
 	
 	try { Submit-Renewal -ErrorAction Continue }
-	catch { "`tFailed to submit renewal" }
+	catch { Write-Host "`tFailed to submit renewal. $($_.Exception.Message)" }
 }
 
 if ($requestManualHttpCerts -eq $true) {
