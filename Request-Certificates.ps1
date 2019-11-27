@@ -31,6 +31,13 @@ PROCESS
     $settings = (Get-Content -Path $settingsFile | ConvertFrom-Json)
 
     foreach($domain in $settings.domains) {
+        if ($domain.enabled -eq $false) 
+        {
+            Write-Host "Skipping Certificate: $($domain.displayName)" -ForegroundColor Yellow
+
+            continue
+        }
+
         Write-Host "Processing Certificate: $($domain.displayName)" -ForegroundColor Green
 
         $provider = $settings.providers | ? { $_.name -eq $domain.provider.name }
@@ -61,13 +68,25 @@ PROCESS
         switch ($domain.type)
         {
             "http" {
-                & .\Create-HttpCertificate.ps1 @args 
-                
+                try {
+                    & .\Create-HttpCertificate.ps1 @args
+                }
+                catch {
+                    Write-Host "Failed processing domain" -ForegroundColor Red
+                    Write-Host $_ -ForegroundColor Red
+                }  
+
                 break;
             }
             "dns" {
 
-                & .\Create-Certificate.ps1 @args 
+                try {
+                    & .\Create-Certificate.ps1 @args 
+                }
+                catch {
+                    Write-Host "Failed processing domain" -ForegroundColor Red
+                    Write-Host $_ -ForegroundColor Red
+                }                
 
                 break;
             }
@@ -78,6 +97,8 @@ PROCESS
             }
         }
     }
+
+    & .\Map-CertificatesToWebSites.ps1 -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference
 }
 END
 {

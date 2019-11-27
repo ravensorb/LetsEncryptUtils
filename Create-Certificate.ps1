@@ -73,17 +73,19 @@ PROCESS
 	Write-Host "`tContact Email: $contactEmail" -ForegroundColor Yellow
 	Write-Host "`tFriendly Name: $friendlyName" -ForegroundColor Yellow
 	Write-Host "`tPlugin Name: $PluginName" -ForegroundColor Yellow
-	Write-Host "`tPlugin Args:" -ForegroundColor Yellow -NoNewline
-	Write-Host (ConvertTo-Json $PluginArgs -Compress)
+	Write-Debug "`tPlugin Args:" 
+	Write-Debug (ConvertTo-Json $PluginArgs -Compress)
 
 	Write-Host "Setting Lets Encrypt to use $letsEncrypServerUrl" -ForegroundColor Green
 
 	if ($PSCmdlet.ShouldProcess("$letsEncrypServerUrl", "Setting Lets Encrypt Server Url")) {
-		Set-PAServer -DirectoryUrl $letsEncrypServerUrl -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference
+		Set-PAServer -DirectoryUrl $letsEncrypServerUrl -Verbose:$VerbosePreference
 	}
 
 	if ($PSCmdlet.ShouldProcess("$domainNames", "Creating actual Certificate")) {
-		#New-PACertificate $domainNames -AcceptTOS -Install -Contact $contactEmail --FriendlyName $friendlyName -DnsPlugin $PluginName -PluginArgs $PluginArgs -PfxPass $pfxPassword -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference
+		$htPluginArgs = ($PluginArgs.psobject.properties | ForEach-Object -begin {$h=@{}} -process {$h.$($_.Name) = $_.Value} -end {$h})
+
+		New-PACertificate $domainNames -AcceptTOS -Install -Contact $contactEmail -FriendlyName $friendlyName -DnsPlugin $PluginName -PluginArgs $htPluginArgs -PfxPass $pfxPassword -Verbose:$VerbosePreference
 	}
 }
 END
