@@ -8,6 +8,7 @@ param(
 	[string]$PluginName,
 	[Parameter(Mandatory=$true)][System.Management.Automation.PSObject]$PluginArgs,
 	[string]$pfxPassword = $null,
+	[SecureString]$pfxPasswordSecure = $null,
 	[string]$letsEncrypServerUrl = "https://acme-v02.api.letsencrypt.org/directory"
 )
 BEGIN
@@ -52,10 +53,15 @@ PROCESS
 		}
 	}
 
+	if ($null -ne $pfxPasswordSecure -and $pfxPasswordSecure.Length -ne 0) {
+		$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($pfxPasswordSecure)
+		$pfxPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+	}
+
 	# Do we have a valid pfx password?
-	if ($pfxPassword -eq $null -or $pfxPassword.Length -eq 0) {
-		# If not, lets use the API token
-		$pfxPassword = $filePathPassword
+	if ($null -eq $pfxPassword -or $pfxPassword.Length -eq 0) {
+		# If not, lets use the contact email address
+		$pfxPassword = $contactEmail
 	}
 
 	# Do we have a friendly name? If not lets use the safe domain as the friendly Name
@@ -83,7 +89,7 @@ PROCESS
 	}	
 
 	#if ($PSCmdlet.ShouldProcess("$domainNames", "Creating actual Certificate")) {
-		& .\New-PAHttpCertificate.ps1 $domainNames -AcceptTOS -Install -Contact $contactEmail -FriendlyName $friendlyName -PluginArgs @{Path=$($PluginArgs.path); UserName=$($PluginArgs.userName); Password=$($PluginArgs.password)} -PfxPass $pfxPassword -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference -CleanUpTokenFiles
+		& .\New-PAHttpCertificate.ps1 $domainNames -AcceptTOS -Install -Contact $contactEmail -FriendlyName $friendlyName -PluginArgs @{Path=$($PluginArgs.path); UserName=$($PluginArgs.userName); Password=$($PluginArgs.password); PasswordSecure=$($PluginArgs.passwordSecure)} -PfxPass $pfxPassword -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference -CleanUpTokenFiles
 	#}
 }
 END

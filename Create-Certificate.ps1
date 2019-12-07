@@ -8,6 +8,7 @@ param(
 	[Parameter(Mandatory=$true)][string]$PluginName,
 	[System.Management.Automation.PSObject]$PluginArgs,
 	[string]$pfxPassword = $null,
+	[SecureString]$pfxPasswordSecure = $null,
 	[string]$letsEncrypServerUrl = "https://acme-v02.api.letsencrypt.org/directory"
 )
 BEGIN
@@ -59,6 +60,11 @@ PROCESS
 	# Do we have a contact email, if not lets set a default one
 	if ($contactEmail -eq $null -or $contactEmail.Length -eq 0) {
 		$contactEmail = "certs@$($safeDomainName)"
+	}
+
+	if ($null -ne $pfxPasswordSecure -and $pfxPasswordSecure.Length -ne 0) {
+		$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($pfxPasswordSecure)
+		$pfxPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
 	}
 
 	# Do we have a valid pfx password?

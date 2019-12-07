@@ -6,6 +6,8 @@ param(
 )
 BEGIN
 {
+    Start-Transcript -Path ".\$($MyInvocation.MyCommand.Name).$(get-date -Format yyyyddMM).txt"
+
 	if (-not $PSBoundParameters.ContainsKey('Verbose'))
 	{
 		$VerbosePreference = $PSCmdlet.GetVariableValue('VerbosePreference')
@@ -58,6 +60,7 @@ PROCESS
             PluginName = $($provider.name)
             PluginArgs = $($provider.settings)
             pfxPassword = $($settings.global.certificates.pfxPassword)
+            pfxPasswordSecure = $($settings.global.certificates.pfxPasswordSecure)
             letsEncrypServerUrl = $($settings.global.letsEncrypt.serverUrl)
             WhatIf = $WhatIfPreference 
             Verbose = $VerbosePreference
@@ -103,4 +106,6 @@ PROCESS
 END
 {
 	Write-Verbose "Leaving script $($MyInvocation.MyCommand.Name)"
+
+    Stop-Transcript
 }

@@ -1,0 +1,6 @@
+{
+    "path": "\\\\<server>\\<path>",
+    "userName": "<user name>",
+    "password": "<plain text password>",
+    "passwordSecure": "<securestring password>"
+}
