@@ -104,20 +104,21 @@ PROCESS
             Write-Host "`tDestination: $($path)" -ForegroundColor Yellow
 
             if (-Not (Test-Path $path)) {
-                New-Item $path -ItemType Directory | Out-Null
+                Write-Host "`t`tCreating Destination Path" -ForegroundColor White
+                New-Item $path -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
             }
 
-            Write-Host "`t`tCopying Cert File" -ForegroundColor Blue
+            Write-Host "`t`tCopying Cert File" -ForegroundColor White
             Copy-Item $($cert.CertFile) $path -Force
-            Write-Host "`t`tCopying Key File" -ForegroundColor Blue
+            Write-Host "`t`tCopying Key File" -ForegroundColor White
             Copy-Item $($cert.KeyFile) $path -Force
-            Write-Host "`t`tCopying Chain File" -ForegroundColor Blue
+            Write-Host "`t`tCopying Chain File" -ForegroundColor White
             Copy-Item $($cert.ChainFile) $path -Force
-            Write-Host "`t`tCopying Full Cert File" -ForegroundColor Blue
+            Write-Host "`t`tCopying Full Cert File" -ForegroundColor White
             Copy-Item $($cert.FullChainFile) $path -Force
-            Write-Host "`t`tCopying PFX File" -ForegroundColor Blue
-            Copy-Item $($cert.PfxFil)e $path -Force
-            Write-Host "`t`tCopying Full Full File" -ForegroundColor Blue
+            Write-Host "`t`tCopying PFX File" -ForegroundColor White
+            Copy-Item $($cert.PfxFile) $path -Force
+            Write-Host "`t`tCopying Full Full File" -ForegroundColor White
             Copy-Item $($cert.PfxFullChain) $path -Force
         }
     }
