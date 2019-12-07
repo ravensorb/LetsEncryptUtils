@@ -4,6 +4,7 @@
 param(
     [Parameter()][string]$Path,
     [Parameter()][string]$SettingsFile = $null,
+    [Parameter()][switch]$CurrentAccountOnly,
     [Parameter(ParameterSetName='Credential')][pscredential]$PathCredentials = $null,
 	[Parameter(ParameterSetName='UserNamePassword')][string]$PathUserName = $null,
 	[Parameter(ParameterSetName='UserNamePassword')][string]$PathPassword = $null,
@@ -87,7 +88,14 @@ PROCESS
 
     $currentAccount = Get-PAAccount
 
-    $accounts = Get-PAAccount -List
+    if ($CurrentAccountOnly) {
+        $accounts = @()
+        $accounts += Get-PAAccount
+    }
+    else
+    {
+        $accounts = Get-PAAccount -List
+    }
 
     foreach ($account in $accounts) 
     {
