@@ -53,6 +53,11 @@ PROCESS
 		}
 	}
 
+	# Do we have a contact email, if not lets set a default one
+	if ($contactEmail -eq $null -or $contactEmail.Length -eq 0) {
+		$contactEmail = "certs@$($safeDomainName)"
+	}
+
 	if ($null -ne $pfxPasswordSecure -and $pfxPasswordSecure.Length -ne 0) {
 		$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($pfxPasswordSecure)
 		$pfxPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
@@ -69,9 +74,9 @@ PROCESS
 		$friendlyName = $safeDomainName
 	}
 
-	# Do we have a contact email, if not lets set a default one
-	if ($contactEmail -eq $null -or $contactEmail.Length -eq 0) {
-		$contactEmail = "certs@$($safeDomainName)"
+	# Lets fix up the plugin args a bit just to be safe
+	if (-Not ([string]::IsNullOrEmpty($PluginArgs.passwordSecure))) {
+		$pluginPasswordSecure = ConvertTo-SecureString $PluginArgs.passwordSecure
 	}
 
 	Import-Module Posh-ACME
@@ -79,6 +84,7 @@ PROCESS
 	Write-Host "Creating Certificate for $domainNames" -ForegroundColor Green
 	Write-Host "`tContact Email: $contactEmail" -ForegroundColor Yellow
 	Write-Host "`tFriendly Name: $friendlyName" -ForegroundColor Yellow
+	Write-Verbose "`tSafe Domain Name: $safeDomainName" 
 	Write-Debug "`tPlugin Args:" 
 	Write-Debug (ConvertTo-Json $PluginArgs -Compress)
 
@@ -89,7 +95,7 @@ PROCESS
 	}	
 
 	#if ($PSCmdlet.ShouldProcess("$domainNames", "Creating actual Certificate")) {
-		& .\New-PAHttpCertificate.ps1 $domainNames -AcceptTOS -Install -Contact $contactEmail -FriendlyName $friendlyName -PluginArgs @{Path=$($PluginArgs.path); UserName=$($PluginArgs.userName); Password=$($PluginArgs.password); PasswordSecure=$($PluginArgs.passwordSecure)} -PfxPass $pfxPassword -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference -CleanUpTokenFiles
+		& .\New-PAHttpCertificate.ps1 $domainNames -AcceptTOS -Install -Contact $contactEmail -FriendlyName $friendlyName -PluginArgs @{Path=$($PluginArgs.path); UserName=$($PluginArgs.userName); Password=$($PluginArgs.password); PasswordSecure=$pluginPasswordSecure} -PfxPass $pfxPassword -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference -CleanUpTokenFiles
 	#}
 }
 END

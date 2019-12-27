@@ -56,11 +56,12 @@ PROCESS
 			if ($null -ne $PluginArgs.Path -and $PluginArgs.Path.StartsWith("\\")) {
 				if ($null -ne $PluginArgs.UserName -and $PluginArgs.UserName.Length -gt 0) {
 					Write-Host "Creating Credential Object" -ForegroundColor Yellow
-					if ($null -eq $PluginArgs.PasswwordSecure -and $null -ne $PluginArgs.Password) {
+					if ($null -eq $PluginArgs.PasswordSecure -and $null -ne $PluginArgs.Password) {
+						Write-Verbose "`tConverting Password to Secure String"
 						$PluginArgs.PasswwordSecure = ConvertTo-SecureString -String $PluginArgs.Password -AsPlainText -Force
 					}
 
-					$PluginArgs.PathCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($PluginArgs.UserName, $PluginArgs.PasswwordSecure)
+					$PluginArgs.PathCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $($PluginArgs.UserName), $($PluginArgs.PasswordSecure)
 				}
 				else {
 					$PluginArgs.PathCredential = Get-Credential -Message "Fileshare Path Credentials"
@@ -128,7 +129,7 @@ PROCESS
 	if ($null -ne $order -and $order.status -eq 'invalid') {
 		Write-Host "Deleted Old Invalid Order" -ForegroundColor Green
 		if ($PSCmdlet.ShouldProcess("$order", "Removing Invalid Order")) {
-			Remove-PAOrder $domainNames[0] -ErrorAction Continue 
+			Remove-PAOrder $domainNames[0] -ErrorAction Continue -Force
 		}
 		$order = $null
 	}

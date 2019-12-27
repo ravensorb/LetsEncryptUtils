@@ -2,7 +2,9 @@
 	CmdletBinding(SupportsShouldProcess=$true)
 ]
 param(
-    [string]$settingsFile = ".\certificates.settings.json"
+    [string]$settingsFile = ".\certificates.settings.json",
+    [string]$domainFilter = $null,
+    [switch]$AutoMapCertificatesToIIS = $true
 )
 BEGIN
 {
@@ -32,7 +34,13 @@ PROCESS
 
     $settings = (Get-Content -Path $settingsFile | ConvertFrom-Json)
 
-    foreach($domain in $settings.domains) {
+    if ($null -ne $domainFilter) {
+        $domains = $settings.domains | ? { $_.displayName -like $domainFilter}
+    } else {
+        $domains = $settings.domains
+    }
+
+    foreach($domain in $domains) {
         if ($domain.enabled -eq $false) 
         {
             Write-Host "Skipping Certificate: $($domain.displayName)" -ForegroundColor Yellow
@@ -53,6 +61,11 @@ PROCESS
         Write-Verbose "`t$provider" 
         Write-Debug (ConvertTo-Json $provider -Compress)
 
+        [SecureString]$pfxPasswordSecure = $null
+        if (-Not ([string]::IsNullOrEmpty($settings.global.certificates.pfxPasswordSecure))) {
+            $pfxPasswordSecure = ConvertTo-SecureString $settings.global.certificates.pfxPasswordSecure
+        }
+
         $args = @{
             domainNames = [string[]] $($domain.mainDomain) + $($domain.alternateDomains)
             contactEmail = $($domain.contact)
@@ -60,10 +73,11 @@ PROCESS
             PluginName = $($provider.name)
             PluginArgs = $($provider.settings)
             pfxPassword = $($settings.global.certificates.pfxPassword)
-            pfxPasswordSecure = $($settings.global.certificates.pfxPasswordSecure)
+            pfxPasswordSecure = $pfxPasswordSecure
             letsEncrypServerUrl = $($settings.global.letsEncrypt.serverUrl)
             WhatIf = $WhatIfPreference 
             Verbose = $VerbosePreference
+            Debug = $DebugPreference
         }
 
         Write-Verbose (ConvertTo-Json $args -Compress)
@@ -101,7 +115,9 @@ PROCESS
         }
     }
 
-    & .\Map-CertificatesToWebSites.ps1 -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference
+    if ($AutoMapCertificatesToIIS) {
+        & .\Map-CertificatesToWebSites.ps1 -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference
+    }
 }
 END
 {
