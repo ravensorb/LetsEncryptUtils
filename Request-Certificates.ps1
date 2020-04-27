@@ -4,7 +4,8 @@
 param(
     [string]$settingsFile = ".\certificates.settings.json",
     [string]$domainFilter = $null,
-    [switch]$AutoMapCertificatesToIIS = $true
+    [switch]$AutoMapCertificatesToIIS = $true,
+    [switch]$RemoveExpiredCertificates = $false
 )
 BEGIN
 {
@@ -34,7 +35,8 @@ PROCESS
 
     $settings = (Get-Content -Path $settingsFile | ConvertFrom-Json)
 
-    if ($null -ne $domainFilter) {
+    if (-Not ([string]::IsNullOrEmpty($domainFilter))) {
+        Write-Host "Filtering Domains to match $domainFilter" -ForegroundColor Yellow
         $domains = $settings.domains | ? { $_.displayName -like $domainFilter}
     } else {
         $domains = $settings.domains
@@ -80,8 +82,13 @@ PROCESS
             Debug = $DebugPreference
         }
 
+		if (-Not [string]::IsNullOrEmpty($provider.plugin)) {
+            $args.PluginName = $($provider.plugin)
+		}
+
         Write-Verbose (ConvertTo-Json $args -Compress)
         
+		$Error = $false
         switch ($domain.type)
         {
             "http" {
@@ -91,6 +98,8 @@ PROCESS
                 catch {
                     Write-Host "Failed processing domain" -ForegroundColor Red
                     Write-Host $_ -ForegroundColor Red
+					
+					$Error = $true
                 }  
 
                 break;
@@ -103,6 +112,8 @@ PROCESS
                 catch {
                     Write-Host "Failed processing domain" -ForegroundColor Red
                     Write-Host $_ -ForegroundColor Red
+					
+					$Error = $true
                 }                
 
                 break;
@@ -115,8 +126,9 @@ PROCESS
         }
     }
 
-    if ($AutoMapCertificatesToIIS) {
-        & .\Map-CertificatesToWebSites.ps1 -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference
+    if ($AutoMapCertificatesToIIS -and -not $Error) {
+        Write-Host "Mapping Certificates" -ForegroundColor Green
+        & .\Map-CertificatesToWebSites.ps1 -RemoveExpiredCertificates:$RemoveExpiredCertificates -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference
     }
 }
 END

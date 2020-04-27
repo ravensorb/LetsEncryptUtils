@@ -73,6 +73,7 @@ PROCESS
 		foreach ($c in $certs)
 		{
 			Write-Host "Removing Cert: $($c.Subject) [Expires:$($c.NotAfter)] [$($c.Thumbprint)]" -ForegroundColor Green
+			Remove-Item $c
 		}
 	}
 }

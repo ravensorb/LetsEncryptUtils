@@ -9,6 +9,8 @@ param(
 	[string]$FriendlyName = $null,
 	[System.Management.Automation.PSObject]$PluginArgs,
 	[string]$PfxPass = $null,
+	[int]$RetryCount = 12,
+	[int]$RetrySleepInSeconds = 10,
 	[switch]$CleanUpTokenFiles 
 )
 BEGIN
@@ -149,20 +151,24 @@ PROCESS
 
 	if ($null -ne $order.RenewAfter -and $order.RenewAfter.Length -gt 0) {
 		$renewAfter = [DateTimeOffset]::Parse($order.RenewAfter)
-		if ([DateTimeOffset]::Now -le $renewAfter -and $forceRenewal -eq $false) {
+		$remainingDays = ($renewAfter - [DateTimeOffset]::Now)
+		if ($remainingDays.Days -ge 5 -and $forceRenewal -eq $false) {
 			Write-Warning "Existing Order Found. Not time to renew yet. Skipping..."
 
 			return
 		}
 	}
 
-	Write-Host "Order Details: $($order.status): $($order.FriendlyName)" -ForegroundColor Yellow
+	Write-Host "Order Details: $($order.status): $($order.FriendlyName) [Renewal After: $($order.RenewAfter)]" -ForegroundColor Yellow
 	Write-Verbose (ConvertTo-Json $order)
 
 	Write-Host "Getting authorizations for order" -ForegroundColor Green
 	$auths = $order | Get-PAAuthorizations
 	if ($null -eq $auths) {
 		Write-Warning "No pending authentications"
+
+		# Lets at least clean up the invalid order so that the next time we execute we will generate a valid key
+		$order | Remove-PAOrder -ErrorAction Continue -Force
 
 		return
 	}
@@ -196,16 +202,17 @@ PROCESS
 	$counter = 0
 	do {
 		Write-Host "Sleeping for 10 seconds to wait for status updates" -ForegroundColor Yellow
-		Start-Sleep -Seconds 10
+		Start-Sleep -Seconds $RetrySleepInSeconds
 	
 		Write-Host "Getting Auth Status" -ForegroundColor Green
-		$authStatus = Get-PAOrder -Refresh | Get-PAAuthorizations
+		$authStatus = Get-PAOrder -Refresh | Get-PAAuthorization
 		$authStatus | ft 
 		Write-Verbose (ConvertTo-Json $authStatus)
 	
 		$pending = ($authStatus | ? { $_.status -eq "pending"} )
 		$counter++
-	} while ($pending -or $counter -ge 12)
+		Write-Verbose "Pending: $pending, Counter: $counter"
+	} while ($null -ne $pending -or $pending -eq $true -or $counter -le $RetryCount)
 
 	if ($null -ne ($authStatus | ? { $_.status -eq "invalid"} )) {
 		Write-Host "One or more Auth Status are invalid.  Please fix and try again..." -ForegroundColor Red
@@ -237,7 +244,7 @@ PROCESS
 	Start-Sleep -Seconds 10
 
 	Write-Host "Getting Updated Auth Status" -ForegroundColor Green
-	$authStatus = Get-PAOrder -Refresh | Get-PAAuthorizations
+	$authStatus = Get-PAOrder -Refresh | Get-PAAuthorization
 	$authStatus.challenges | ft
 	#$authStatus
 	#$authStatus.challenges | ? { $_.type -eq 'http-01' } | fl *
