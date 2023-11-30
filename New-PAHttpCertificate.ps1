@@ -9,9 +9,10 @@ param(
 	[string]$FriendlyName = $null,
 	[System.Management.Automation.PSObject]$PluginArgs,
 	[string]$PfxPass = $null,
-	[int]$RetryCount = 12,
+	[int]$RetryCount = 3,
 	[int]$RetrySleepInSeconds = 10,
-	[switch]$CleanUpTokenFiles 
+	[switch]$CleanUpTokenFiles,
+	[switch]$ForceRenewal
 )
 BEGIN
 {
@@ -47,7 +48,7 @@ PROCESS
 		return
 	}
 
-	$args = @{
+	$psDriveArgs = @{
 		Name = "tokenPath"
 		Root = $($PluginArgs.Path)
 		PSProvider = "FileSystem"
@@ -75,12 +76,12 @@ PROCESS
 			}
 		}
 
-		$args += @{ Credential = $($PluginArgs.PathCredential) }
+		$psDriveArgs += @{ Credential = $($PluginArgs.PathCredential) }
 	}
 
-	Write-Verbose (ConvertTo-Json $args)
+	Write-Verbose (ConvertTo-Json $psDriveArgs)
 
-	$psdrive = New-PSDrive @args
+	$psdrive = New-PSDrive @psDriveArgs
 	if ($null -eq $psdrive) {
 		Write-Warning "Failed to access $($PluginArgs.Path)"
 
@@ -115,7 +116,7 @@ PROCESS
 	Write-Host "`tFriendly Name: $FriendlyName" -ForegroundColor Yellow
 	Write-Host "`tPath: $($PluginArgs.Path)" -ForegroundColor Yellow
 
-	$act = Get-PAAccount -List | ? { $_.contact -eq $Contact }
+	$act = Get-PAAccount -List | Where-Object { $_.contact -eq $Contact }
 
 	if ($null -eq $act) {
 		Write-Host "Creating new account for domain $($domainNames[0])" -ForegroundColor Green
@@ -139,7 +140,7 @@ PROCESS
 	if ($null -eq $order) {
 		Write-Host "Creating new order" -ForegroundColor Green
 		if ($PSCmdlet.ShouldProcess("$domainNames", "Creating new PA Order")) {
-			$order = New-PAOrder $domainNames -FriendlyName $FriendlyName -Install
+			$order = New-PAOrder $domainNames -FriendlyName $FriendlyName -Install -Force
 		}
 	}
 		
@@ -173,10 +174,10 @@ PROCESS
 		return
 	}
 
-	$auths | ft
+	$auths | Format-Table
 	Write-Verbose (ConvertTo-Json $auths) 
 
-	$toPublish = $auths | ? { $_.HTTP01Token.Length -gt 0 } | Select-Object @{L='Url';E={"http://$($_.fqdn)/.well-known/acme-challenge/$($_.HTTP01Token)"}}, `
+	$toPublish = $auths | Where-Object { $_.HTTP01Token.Length -gt 0 } | Select-Object @{L='Url';E={"http://$($_.fqdn)/.well-known/acme-challenge/$($_.HTTP01Token)"}}, `
 										@{L='Token';E={"$($_.HTTP01Token)"}}, `
 										@{L='Body';E={Get-KeyAuthorization $_.HTTP01Token (Get-PAAccount)}}
 								
@@ -184,20 +185,34 @@ PROCESS
 
 	Write-Host "Creating HTTP Challenge Token Files" -ForegroundColor Green
 
-	$toPublish | % {
+	$toPublish | ForEach-Object {
 		$f = "tokenPath:\$($_.Token)"
 		Write-Host "`tCreating Token File $f" -ForegroundColor Yellow
 		if ($PSCmdlet.ShouldProcess("$f", "Creating Token File")) {
 			$tokenFilesCreated += $f
 			Out-File -File $f -InputObject $_.Body -Encoding ascii
+			$url = "http://letsencrypt.ravenwolf.org/.well-known/acme-challenge/$($_.Token)"
+			Write-Host "`tVerifying token file is accessible via '$($url)'" -ForegroundColor Yellow
+			try { 
+				$response = Invoke-WebRequest -Uri $url -ErrorAction SilentlyContinue
+				Write-Host "HTTP Response:`n$($response)" -ForegroundColor Yellow
+			} catch {
+				Write-Host $_.Exception -ForegroundColor Red
+
+				return
+			}
+			Write-Host "`tToken file should be accessible publicly via '$($_.Url)'" -ForegroundColor Yellow
 		}
-	}
-								
+	}	
+					
+	Write-Host "Sleeping for 30 seconds to wait for token files to be accessable" -ForegroundColor Yellow
+	Start-Sleep -Seconds 30
+
 	Write-Host "Sending Challenges" -ForegroundColor Green
 	if ($PSCmdlet.ShouldProcess("$auths", "Sending ChallengeAck")) {
 		$auths.HTTP01Url | Send-ChallengeAck -Verbose:$VerbosePreference
 	}
-
+	
 	$pending = $true
 	$counter = 0
 	do {
@@ -206,23 +221,23 @@ PROCESS
 	
 		Write-Host "Getting Auth Status" -ForegroundColor Green
 		$authStatus = Get-PAOrder -Refresh | Get-PAAuthorization
-		$authStatus | ft 
+		$authStatus | Format-Table 
 		Write-Verbose (ConvertTo-Json $authStatus)
 	
-		$pending = ($authStatus | ? { $_.status -eq "pending"} )
+		$pending = ($authStatus | Where-Object { $_.status -eq "pending"} )
 		$counter++
 		Write-Verbose "Pending: $pending, Counter: $counter"
 	} while ($null -ne $pending -or $pending -eq $true -or $counter -le $RetryCount)
 
-	if ($null -ne ($authStatus | ? { $_.status -eq "invalid"} )) {
+	if ($null -ne ($authStatus | Where-Object { $_.status -eq "invalid"} )) {
 		Write-Host "One or more Auth Status are invalid.  Please fix and try again..." -ForegroundColor Red
 
 		foreach ($item in $authStatus)
 		{
 			Write-Host "--------------------------------------------------------------------------"
 			Write-Host "Result for: $($item.fqdn)"
-			$item | fl *
-			$item.challenges.validationRecord | fl *
+			$item | Format-List *
+			$item.challenges.validationRecord | Format-List *
 		}
 
 		return
@@ -245,7 +260,7 @@ PROCESS
 
 	Write-Host "Getting Updated Auth Status" -ForegroundColor Green
 	$authStatus = Get-PAOrder -Refresh | Get-PAAuthorization
-	$authStatus.challenges | ft
+	$authStatus.challenges | Format-Table
 	#$authStatus
 	#$authStatus.challenges | ? { $_.type -eq 'http-01' } | fl *
 	Write-Verbose (ConvertTo-Json $authStatus)
@@ -256,7 +271,7 @@ END
 	{
 		Write-Host "Removing HTTP Challenge Token Files" -ForegroundColor Green
 
-		$tokenFilesCreated | % {
+		$tokenFilesCreated | ForEach-Object {
 			Write-Host "`tRemoving Token File $_" -ForegroundColor Yellow
 			Remove-Item $_ -ErrorAction SilentlyContinue
 		}

@@ -12,7 +12,7 @@ param(
 )
 BEGIN
 {
-    Start-Transcript -Path ".\$($MyInvocation.MyCommand.Name).$(get-date -Format yyyyddMM).txt"
+    Start-Transcript -Path ".\logs\$($MyInvocation.MyCommand.Name).$(get-date -Format yyyyddMM).txt"
 
 	if (-not $PSBoundParameters.ContainsKey('Verbose'))
 	{
@@ -104,30 +104,35 @@ PROCESS
         $certificates = Get-PACertificate -List
         foreach ($cert in $certificates)
         {
-            Write-Host "`tCertificate: $($cert.Subject)" -ForegroundColor Yellow
+			try {
+				Write-Host "`tCertificate: $($cert.Subject)" -ForegroundColor Yellow
 
-            $domainSafe = Split-Path -Leaf (Split-Path $($cert.CertFile) -Parent)
-            $path = "certPath:\$($domainSafe)"
+				$domainSafe = Split-Path -Leaf (Split-Path $($cert.CertFile) -Parent)
+				$path = "certPath:\$($domainSafe)"
 
-            Write-Host "`tDestination: $($path)" -ForegroundColor Yellow
+				Write-Host "`tDestination: $($path)" -ForegroundColor Yellow
 
-            if (-Not (Test-Path $path)) {
-                Write-Host "`t`tCreating Destination Path" -ForegroundColor White
-                New-Item $path -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
-            }
+				if (-Not (Test-Path $path)) {
+					Write-Host "`t`tCreating Destination Path" -ForegroundColor White
+					New-Item $path -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+				}
 
-            Write-Host "`t`tCopying Cert File" -ForegroundColor White
-            Copy-Item $($cert.CertFile) $path -Force
-            Write-Host "`t`tCopying Key File" -ForegroundColor White
-            Copy-Item $($cert.KeyFile) $path -Force
-            Write-Host "`t`tCopying Chain File" -ForegroundColor White
-            Copy-Item $($cert.ChainFile) $path -Force
-            Write-Host "`t`tCopying Full Cert File" -ForegroundColor White
-            Copy-Item $($cert.FullChainFile) $path -Force
-            Write-Host "`t`tCopying PFX File" -ForegroundColor White
-            Copy-Item $($cert.PfxFile) $path -Force
-            Write-Host "`t`tCopying Full Full File" -ForegroundColor White
-            Copy-Item $($cert.PfxFullChain) $path -Force
+				Write-Host "`t`tCopying Cert File" -ForegroundColor White
+				Copy-Item $($cert.CertFile) $path -Force
+				Write-Host "`t`tCopying Key File" -ForegroundColor White
+				Copy-Item $($cert.KeyFile) $path -Force
+				Write-Host "`t`tCopying Chain File" -ForegroundColor White
+				Copy-Item $($cert.ChainFile) $path -Force
+				Write-Host "`t`tCopying Full Cert File" -ForegroundColor White
+				Copy-Item $($cert.FullChainFile) $path -Force
+				Write-Host "`t`tCopying PFX File" -ForegroundColor White
+				Copy-Item $($cert.PfxFile) $path -Force
+				Write-Host "`t`tCopying Full Full File" -ForegroundColor White
+				Copy-Item $($cert.PfxFullChain) $path -Force
+			} catch {
+				Write-Host "`t`tFailed to copy certificate" -ForegroundColor Red
+				Write-Host $_ -ForegroundColor Red
+			}
         }
     }
 

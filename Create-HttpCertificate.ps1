@@ -9,7 +9,8 @@ param(
 	[Parameter(Mandatory=$true)][System.Management.Automation.PSObject]$PluginArgs,
 	[string]$pfxPassword = $null,
 	[SecureString]$pfxPasswordSecure = $null,
-	[string]$letsEncrypServerUrl = "https://acme-v02.api.letsencrypt.org/directory"
+	[string]$letsEncrypServerUrl = "https://acme-v02.api.letsencrypt.org/directory".
+	[switch]$ForceRenewal
 )
 BEGIN
 {
@@ -95,7 +96,7 @@ PROCESS
 	}	
 
 	#if ($PSCmdlet.ShouldProcess("$domainNames", "Creating actual Certificate")) {
-		& .\New-PAHttpCertificate.ps1 $domainNames -AcceptTOS -Install -Contact $contactEmail -FriendlyName $friendlyName -PluginArgs @{Path=$($PluginArgs.path); UserName=$($PluginArgs.userName); Password=$($PluginArgs.password); PasswordSecure=$pluginPasswordSecure} -PfxPass $pfxPassword -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference -CleanUpTokenFiles
+		& .\New-PAHttpCertificate.ps1 $domainNames -AcceptTOS -Install -Contact $contactEmail -FriendlyName $friendlyName -PluginArgs @{Path=$($PluginArgs.path); UserName=$($PluginArgs.userName); Password=$($PluginArgs.password); PasswordSecure=$pluginPasswordSecure} -PfxPass $pfxPassword -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference -CleanUpTokenFiles -ForceRenewal:$ForceRenewal
 	#}
 }
 END

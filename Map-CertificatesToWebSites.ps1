@@ -53,7 +53,12 @@ PROCESS
 				Write-Host "`t`tSetting Binding for $($b) to [$($hash)]" -ForegroundColor Cyan
 
 				if ($PSCmdlet.ShouldProcess("$b", "Adding SSL Certificate to Binding")) {
-					$s.AddSSLCertificate($($hash), "My")
+					try {
+						$s.AddSSLCertificate($($hash), "My")
+					} catch {
+						Write-Host "`t`tFailed to add SSL certificate" -ForegroundColor Red
+						Write-Host $_ -ForegroundColor Red
+					}
 				}
 
 				continue
@@ -61,8 +66,10 @@ PROCESS
 		}
 	}
 
-	if ($removeExpiredCertificates) 
+	if ($RemoveExpiredCertificates) 
 	{
+		Write-Host "Checking for Certificates that have expired and can be removed" -ForegroundColor Green
+
 		# Get a list of Let's Enrypt SSL Certificates that are still valid
 		$certs = (Get-ChildItem cert:\localmachine\my | Where-Object { $_.Issuer -Like "*Let's*" -and $_.NotAfter -le [DateTime]::Now.AddDays(-1) })
 
@@ -72,8 +79,15 @@ PROCESS
 
 		foreach ($c in $certs)
 		{
-			Write-Host "Removing Cert: $($c.Subject) [Expires:$($c.NotAfter)] [$($c.Thumbprint)]" -ForegroundColor Green
-			Remove-Item $c
+			Write-Host "`tRemoving Cert: $($c.Subject) [Expires:$($c.NotAfter)] [$($c.Thumbprint)]" -ForegroundColor Green
+
+			try {
+				$c | Remove-Item
+			}
+			catch {
+				Write-Host "Failed removing certificate...." -ForegroundColor Red
+				Write-Host $_ -ForegroundColor Red
+			}                			
 		}
 	}
 }

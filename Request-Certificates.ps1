@@ -5,11 +5,12 @@ param(
     [string]$settingsFile = ".\certificates.settings.json",
     [string]$domainFilter = $null,
     [switch]$AutoMapCertificatesToIIS = $true,
-    [switch]$RemoveExpiredCertificates = $false
+    [switch]$RemoveExpiredCertificates = $true,
+    [switch]$ForceRenewal
 )
 BEGIN
 {
-    Start-Transcript -Path ".\$($MyInvocation.MyCommand.Name).$(get-date -Format yyyyddMM).txt"
+    Start-Transcript -Path ".\logs\$($MyInvocation.MyCommand.Name).$(get-date -Format yyyyddMM).txt"
 
 	if (-not $PSBoundParameters.ContainsKey('Verbose'))
 	{
@@ -37,7 +38,7 @@ PROCESS
 
     if (-Not ([string]::IsNullOrEmpty($domainFilter))) {
         Write-Host "Filtering Domains to match $domainFilter" -ForegroundColor Yellow
-        $domains = $settings.domains | ? { $_.displayName -like $domainFilter}
+        $domains = $settings.domains | Where-Object { $_.displayName -like $domainFilter -or $_.mainDomain -like $domainFilter }
     } else {
         $domains = $settings.domains
     }
@@ -52,7 +53,7 @@ PROCESS
 
         Write-Host "Processing Certificate: $($domain.displayName)" -ForegroundColor Green
 
-        $provider = $settings.providers | ? { $_.name -eq $domain.provider.name }
+        $provider = $settings.providers | Where-Object { $_.name -eq $domain.provider.name }
         if ($provider -eq $nul)
         {
             Write-Host "`tProvider '$($domain.provider.name)' not found..." -ForegroundColor Red
@@ -82,13 +83,17 @@ PROCESS
             Debug = $DebugPreference
         }
 
+        if ($ForceRenewal.IsPresent) {
+            $args += @{ force = $true }
+        }
+
 		if (-Not [string]::IsNullOrEmpty($provider.plugin)) {
             $args.PluginName = $($provider.plugin)
 		}
 
         Write-Verbose (ConvertTo-Json $args -Compress)
         
-		$Error = $false
+		$processingError = $false
         switch ($domain.type)
         {
             "http" {
@@ -99,7 +104,7 @@ PROCESS
                     Write-Host "Failed processing domain" -ForegroundColor Red
                     Write-Host $_ -ForegroundColor Red
 					
-					$Error = $true
+					$processingError = $true
                 }  
 
                 break;
@@ -113,7 +118,7 @@ PROCESS
                     Write-Host "Failed processing domain" -ForegroundColor Red
                     Write-Host $_ -ForegroundColor Red
 					
-					$Error = $true
+					$processingError = $true
                 }                
 
                 break;
@@ -126,7 +131,7 @@ PROCESS
         }
     }
 
-    if ($AutoMapCertificatesToIIS -and -not $Error) {
+    if ($AutoMapCertificatesToIIS -and -not $processingError) {
         Write-Host "Mapping Certificates" -ForegroundColor Green
         & .\Map-CertificatesToWebSites.ps1 -RemoveExpiredCertificates:$RemoveExpiredCertificates -WhatIf:$WhatIfPreference -Verbose:$VerbosePreference
     }
