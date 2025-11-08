@@ -10,7 +10,7 @@ param(
 )
 BEGIN
 {
-    Start-Transcript -Path ".\logs\$($MyInvocation.MyCommand.Name).$(get-date -Format yyyyddMM).txt"
+    Start-Transcript -Path ".\logs\$($MyInvocation.MyCommand.Name).$(get-date -Format yyyyMMdd).txt"
 
 	if (-not $PSBoundParameters.ContainsKey('Verbose'))
 	{

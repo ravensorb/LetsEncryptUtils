@@ -7,6 +7,11 @@ param(
 )
 BEGIN
 {
+    if ($PSVersionTable.PSEdition -eq 'Core') {
+        Write-Host "This script is not supported in PowerShell Core." -ForegroundColor Red
+        exit
+    }
+
 	if (-not $PSBoundParameters.ContainsKey('Verbose'))
 	{
 		$VerbosePreference = $PSCmdlet.GetVariableValue('VerbosePreference')
@@ -24,7 +29,7 @@ BEGIN
 PROCESS
 {
 	# Get a list of Let's Enrypt SSL Certificates that are still valid
-	$certs = (Get-ChildItem cert:\localmachine\my | Where-Object { $_.Issuer -Like "*Let's*" -and $_.NotAfter -ge [DateTime]::Now })
+	$certs = (Get-ChildItem cert:\localmachine\my | Where-Object { $_.Issuer -Like "*Let's*" -and $_.NotAfter -ge [DateTime]::Now.AddDays(-20) })
 
 	if ($null -ne $FriendlyName -and $FriendlyName.Length -gt 0) {
 		$certs = $certs | Where-Object { $_.Subject -like $FriendlyName }
@@ -71,9 +76,10 @@ PROCESS
 		Write-Host "Checking for Certificates that have expired and can be removed" -ForegroundColor Green
 
 		# Get a list of Let's Enrypt SSL Certificates that are still valid
-		$certs = (Get-ChildItem cert:\localmachine\my | Where-Object { $_.Issuer -Like "*Let's*" -and $_.NotAfter -le [DateTime]::Now.AddDays(-1) })
+		$certs = (Get-ChildItem cert:\localmachine\my | Where-Object { $_.Issuer -Like "*Let's*" -and $_.NotAfter -le [DateTime]::Now })
 
 		if ($null -ne $friendlyName -and $friendlyName.Length -gt 0) {
+			Write-Host "Checking to see if any expired certs match the name '$($FriendlyName)"
 			$certs = $certs | Where-Object { $_.Subject -like $friendlyName }
 		}
 
